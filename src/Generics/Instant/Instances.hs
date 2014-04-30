@@ -22,53 +22,53 @@
 module Generics.Instant.Instances () where
 
 import Generics.Instant.Base
-  
-instance Representable Int where 
+
+instance Representable Int where
   type Rep Int = Int
   to = id
   from = id
-  
-instance Representable Char where 
+
+instance Representable Char where
   type Rep Char = Char
   to = id
   from = id
-  
-instance Representable Bool where 
+
+instance Representable Bool where
   type Rep Bool = Bool
   to = id
   from = id
 
-instance Representable Float where 
+instance Representable Float where
   type Rep Float = Float
   to = id
   from = id
-  
-instance Representable U where 
+
+instance Representable U where
   type Rep U = U
   to = id
   from = id
 
-instance (Representable a, Representable b) => Representable (a :*: b) where 
+instance (Representable a, Representable b) => Representable (a :*: b) where
   type Rep (a :*: b) = a :*: b
   to = id
   from = id
 
-instance (Representable a, Representable b) => Representable (a :+: b) where 
+instance (Representable a, Representable b) => Representable (a :+: b) where
   type Rep (a :+: b) = a :+: b
   to = id
   from = id
-  
-instance Representable a => Representable (CEq c p q a) where 
-  type Rep (CEq c p q a) = CEq c p q a
+
+instance Representable a => Representable (CEq k c p q a) where
+  type Rep (CEq k c p q a) = CEq k c p q a
   to = id
   from = id
-  
-instance Representable a => Representable (Var a) where 
+
+instance Representable a => Representable (Var a) where
   type Rep (Var a) = Var a
   to = id
   from = id
 
-instance Representable a => Representable (Rec a) where 
+instance Representable a => Representable (Rec a) where
   type Rep (Rec a) = Rec a
   to = id
   from = id
@@ -95,7 +95,7 @@ instance Representable (Maybe a) where
   from (Just x)          = R (C (Var x))
   to (L (C U))       = Nothing
   to (R (C (Var x))) = Just x
-  
+
 data Maybe_Nothing_
 instance Constructor Maybe_Nothing_  where conName _ = "Nothing"
 data Maybe_Just_

@@ -54,7 +54,7 @@ data TypeArgsEqs = TypeArgsEqs { args :: [Type]        -- ^ Constructor args
 simplInstance :: Name -> Name -> Name -> Name -> Q [Dec]
 simplInstance cl ty fn df = do
   i <- reify ty
-  let typ = return (foldl (\a -> AppT a . VarT . tyVarBndrToName) 
+  let typ = return (foldl (\a -> AppT a . VarT . tyVarBndrToName)
                               (ConT ty) (typeVariables i))
   fmap (: []) $ instanceD (cxt []) (conT cl `appT` typ)
     [funD fn [clause [] (normalB (varE df)) []]]
@@ -66,7 +66,7 @@ simplInstance cl ty fn df = do
 gadtInstance :: Name -> Name -> Name -> Name -> Q [Dec]
 gadtInstance cl ty fn df = do
   i <- reify ty
-  let typ = (foldl (\a -> AppT a . VarT . tyVarBndrToName) 
+  let typ = (foldl (\a -> AppT a . VarT . tyVarBndrToName)
                               (ConT ty) (typeVariables i))
 
       dt :: ([TyVarBndr],[Con])
@@ -87,8 +87,8 @@ gadtInstance cl ty fn df = do
         f (RecC _ tys)       = TypeArgsEqs (map (\(_,_,t) -> t) tys) [] []
         f (InfixC t1 _ t2)   = TypeArgsEqs [snd t1, snd t2]          [] []
         f (ForallC vs cxt c) = case f c of
-            TypeArgsEqs ts vs' eqs' -> 
-              TypeArgsEqs ts (tyVarBndrsToNames vs ++ vs') 
+            TypeArgsEqs ts vs' eqs' ->
+              TypeArgsEqs ts (tyVarBndrsToNames vs ++ vs')
                           ((concatMap g cxt) ++ eqs')
         g :: Pred -> [(Type,Type)]
         g (EqualP (VarT t1) t2) | t1 `elem` nms = [(VarT t1,t2)]
@@ -103,7 +103,7 @@ gadtInstance cl ty fn df = do
         f x        = x
 
       mkInst :: TypeArgsEqs -> Dec
-      mkInst t = InstanceD (map mkCxt (args t)) 
+      mkInst t = InstanceD (map mkCxt (args t))
                            (ConT cl `AppT` subst (teqs t) typ) instBody
 
       mkCxt :: Type -> Pred
@@ -116,17 +116,17 @@ gadtInstance cl ty fn df = do
       update :: TypeArgsEqs -> [TypeArgsEqs] -> [TypeArgsEqs]
       -- update True  t1 [] = [t1]
       update _  [] = []
-      update t1 (t2:ts) | teqs t1 == teqs t2 = 
+      update t1 (t2:ts) | teqs t1 == teqs t2 =
                             t2 {args = nub (args t1 ++ args t2)} : ts
                         | otherwise          = t2 : update t1 ts
 
       -- Types without any type equalities (not real GADTs) need to be handled
       -- differently. Others are dealt with using filterMerge.
-      handleADTs :: ([TypeArgsEqs] -> [TypeArgsEqs]) 
+      handleADTs :: ([TypeArgsEqs] -> [TypeArgsEqs])
                  -> [TypeArgsEqs] -> [TypeArgsEqs]
-      handleADTs f ts | and (map (null . teqs) ts) 
+      handleADTs f ts | and (map (null . teqs) ts)
                       = [TypeArgsEqs (concatMap args ts) [] []]
-                      | otherwise = f ts                      
+                      | otherwise = f ts
 
       -- We need to
       -- 1) ignore constructors that don't introduce any type equalities
@@ -136,7 +136,7 @@ gadtInstance cl ty fn df = do
       filterMerge (t0@(TypeArgsEqs ts vs eqs):t)
         | eqs == [] = update t0 (filterMerge t)
         | otherwise = case filterMerge t of
-                        l -> if or (concat 
+                        l -> if or (concat
                                   [ [ typeMatch vs (vars t2) eq1 eq2
                                     | eq1 <- eqs, eq2 <- teqs t2 ] | t2 <- l ])
                              then update t0 l
@@ -146,8 +146,8 @@ gadtInstance cl ty fn df = do
       -- For (2) above, we need to consider type equality modulo
       -- quantified-variable names
       typeMatch :: [Name] -> [Name] -> (Type,Type) -> (Type,Type) -> Bool
-      typeMatch vs1 vs2 eq1 eq2 | length vs1 /= length vs2 = False 
-                                | otherwise 
+      typeMatch vs1 vs2 eq1 eq2 | length vs1 /= length vs2 = False
+                                | otherwise
                                 = eq1 == everywhere (mkT f) eq2
         where f (VarT n) = case n `elemIndex` vs2 of
                              -- is not a quantified variable
@@ -157,7 +157,7 @@ gadtInstance cl ty fn df = do
               f x        = x
 
       allTypeArgsEqs = eqs idxs (snd dt)
-    
+
       normInsts = map mkInst   (handleADTs filterMerge allTypeArgsEqs)
 
   return $ normInsts
@@ -175,7 +175,7 @@ deriveAll n =
 deriveAllL :: [Name] -> Q [Dec]
 deriveAllL = fmap concat . mapM deriveAll
 
--- | Given a datatype name, derive datatypes and 
+-- | Given a datatype name, derive datatypes and
 -- instances of class 'Constructor'.
 deriveConstructors :: Name -> Q [Dec]
 deriveConstructors = constrInstance
@@ -197,15 +197,15 @@ deriveRep n = do
   let d = case i of
             TyConI dec -> dec
             _ -> error "unknown construct"
-  
+
   exTyFamsInsts <- genExTyFamInsts d
-  fmap (: exTyFamsInsts) $ 
+  fmap (: exTyFamsInsts) $
     tySynD (genRepName n) (typeVariables i) (repType d (typeVariables i))
 
 deriveInst :: Name -> Q [Dec]
 deriveInst t = do
   i <- reify t
-  let typ q = return $ foldl (\a -> AppT a . VarT . tyVarBndrToName) (ConT q) 
+  let typ q = return $ foldl (\a -> AppT a . VarT . tyVarBndrToName) (ConT q)
                 (typeVariables i)
       -- inlPrg = pragInlD t (inlineSpecPhase True False True 1)
   fcs <- mkFrom t 1 0 t
@@ -254,7 +254,7 @@ genRepName = mkName . (++"_") . ("Rep"  ++) . nameBase
 
 mkConstrData :: Name -> Con -> Q Dec
 mkConstrData dt (NormalC n _) =
-  dataD (cxt []) (genName [dt, n]) [] [] [] 
+  dataD (cxt []) (genName [dt, n]) [] [] []
 mkConstrData dt r@(RecC _ _) =
   mkConstrData dt (stripRecordNames r)
 mkConstrData dt (InfixC t1 n t2) =
@@ -293,22 +293,22 @@ mkConstrInstance dt (InfixC t1 n t2) =
     convertDirection InfixN = NotAssociative
 
 mkConstrInstanceWith :: Name -> Name -> [Q Dec] -> Q Dec
-mkConstrInstanceWith dt n extra = 
+mkConstrInstanceWith dt n extra =
   instanceD (cxt []) (appT (conT ''Constructor) (conT $ genName [dt, n]))
     (funD 'conName [clause [wildP] (normalB (stringE (nameBase n))) []] : extra)
 
 repType :: Dec -> [TyVarBndr] -> Q Type
-repType i repVs = 
+repType i repVs =
   do let sum :: Q Type -> Q Type -> Q Type
          sum a b = conT ''(:+:) `appT` a `appT` b
      case i of
         (DataD _ dt vs cs _)   ->
           (foldBal' sum (error "Empty datatypes are not supported.")
-            (map (repConGADT (dt, tyVarBndrsToNames vs) repVs 
+            (map (repConGADT (dt, tyVarBndrsToNames vs) repVs
                    (extractIndices vs cs)) cs))
         (NewtypeD _ dt vs c _) -> repConGADT (dt, tyVarBndrsToNames vs) repVs
                                    (extractIndices vs [c]) c
-        (TySynD t _ _)         -> error "type synonym?" 
+        (TySynD t _ _)         -> error "type synonym?"
         _                      -> error "unknown construct"
 
 
@@ -329,23 +329,30 @@ extractIndices vs = nub . everything (++) ([] `mkQ` isIndexEq) where
 
 repConGADT :: (Name, [Name]) -> [TyVarBndr] -> [Name] -> Con -> Q Type
 -- We only accept one index variable, for now
-repConGADT _ _ vs@(_:_:_) (ForallC _ _ _) = 
+repConGADT _ _ vs@(_:_:_) (ForallC _ _ _) =
   error ("Datatype indexed over >1 variable: " ++ show vs)
 -- Handle type equality constraints
-repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) = 
+repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) =
   do
      let
-        genTypeEqs ((EqualP t1 t2):r) | otherwise = case genTypeEqs r of 
+        genTypeEqs ((EqualP t1 t2):r) | otherwise = case genTypeEqs r of
             (t1s,t2s) -> ( ConT ''(:*:) `AppT` (substTyVar vsN t1) `AppT` t1s
                          , ConT ''(:*:) `AppT` (substTyVar vsN t2) `AppT` t2s)
         genTypeEqs (_:r) = genTypeEqs r -- other constraints are ignored
         genTypeEqs []    = baseEqs
 
+        genConstraints ((ClassP c cvs):r) = do
+          there <- genConstraints r
+          let here = foldl AppT (ConT c) cvs
+          return (TupleT 2 `AppT` here `AppT` there)
+        genConstraints (_:r) = genConstraints r
+        genConstraints []    = conT ''()
+
         substTyVar :: [Name] -> Type -> Type
         substTyVar ns = everywhere (mkT f) where
           f (VarT v) = case elemIndex v ns of
                          Nothing -> VarT v
-                         Just i  -> ConT ''X 
+                         Just i  -> ConT ''X
                                      `AppT` ConT (genName [dt,getConName c])
                                      `AppT` int2TLNat i
                                      `AppT` VarT indexVar
@@ -355,9 +362,12 @@ repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) =
         vsN = tyVarBndrsToNames vs
 
      -- Go on with generating the representation type, taking the equalities
-     repCon (dt, dtVs) (everywhere (mkT (substTyVar vsN)) c) (genTypeEqs ctx)
+     repCon (genConstraints ctx)
+            (dt, dtVs)
+            (everywhere (mkT (substTyVar vsN)) c)
+            (genTypeEqs ctx)
 -- No constraints, go on as usual
-repConGADT d _repVs _ c = repCon d c baseEqs
+repConGADT d _repVs _ c = repCon (conT ''()) d c baseEqs
 
 -- Extract the constructor name
 getConName :: Con -> Name
@@ -373,12 +383,12 @@ int2TLNat n = ConT ''Su `AppT` int2TLNat (n-1)
 
 -- Generate the mobility rules for the existential type families
 genExTyFamInsts :: Dec -> Q [Dec]
-genExTyFamInsts (DataD    _ n _ cs _) = fmap concat $ 
+genExTyFamInsts (DataD    _ n _ cs _) = fmap concat $
                                           mapM (genExTyFamInsts' n) cs
 genExTyFamInsts (NewtypeD _ n _ c  _) = genExTyFamInsts' n c
 
 genExTyFamInsts' :: Name -> Con -> Q [Dec]
-genExTyFamInsts' dt (ForallC vs cxt c) = 
+genExTyFamInsts' dt (ForallC vs cxt c) =
   do let mR = mobilityRules (tyVarBndrsToNames vs) cxt
          conName = ConT (genName [dt,getConName c])
          tySynInst ty n x = TySynInstD ''X [conName, int2TLNat n, ty] x
@@ -410,27 +420,37 @@ flattenEqs (t1, t2) = return t1 `appT` return t2
 baseEqs :: (Type, Type)
 baseEqs = (TupleT 0, TupleT 0)
 
-repCon :: (Name, [Name]) -> Con -> (Type,Type) -> Q Type
-repCon _ (ForallC _ _ _) _ = error "impossible"
-repCon (dt, vs) (NormalC n []) (t1,t2) =
-    conT ''CEq `appT` (conT $ genName [dt, n]) `appT` return t1 
-                                               `appT` return t2 `appT` conT ''U
-repCon (dt, vs) (NormalC n fs) (t1,t2) =
-    conT ''CEq `appT` (conT $ genName [dt, n]) `appT` return t1 
-                                               `appT` return t2 `appT` 
+--repCon :: (Name, [Name]) -> Con -> (Type,Type) -> Q Type
+repCon _ dt (ForallC _ p r) t = error "XXX"
+repCon k (dt, vs) (NormalC n []) (t1,t2) =
+    conT ''CEq `appT` k
+               `appT` (conT $ genName [dt, n])
+               `appT` return t1
+               `appT` return t2 `appT` conT ''U
+repCon k (dt, vs) (NormalC n fs) (t1,t2) =
+    conT ''CEq `appT` k
+               `appT` (conT $ genName [dt, n])
+               `appT` return t1
+               `appT` return t2 `appT`
      (foldBal prod (map (repField (dt, vs) . snd) fs)) where
     prod :: Q Type -> Q Type -> Q Type
     prod a b = conT ''(:*:) `appT` a `appT` b
-repCon (dt, vs) r@(RecC n []) (t1,t2)  =
-    conT ''CEq `appT` (conT $ genName [dt, n]) `appT` return t1
-                                               `appT` return t2 `appT` conT ''U
-repCon (dt, vs) r@(RecC n fs) (t1,t2) =
-    conT ''CEq `appT` (conT $ genName [dt, n]) `appT` return t1 
-                                               `appT` return t2 `appT` 
+repCon k (dt, vs) r@(RecC n []) (t1,t2)  =
+    conT ''CEq `appT` k
+               `appT` (conT $ genName [dt, n])
+               `appT` return t1
+               `appT` return t2 `appT` conT ''U
+repCon k (dt, vs) r@(RecC n fs) (t1,t2) =
+    conT ''CEq `appT` k
+               `appT` (conT $ genName [dt, n])
+               `appT` return t1
+               `appT` return t2 `appT`
       (foldBal prod (map (repField' (dt, vs) n) fs)) where
     prod :: Q Type -> Q Type -> Q Type
     prod a b = conT ''(:*:) `appT` a `appT` b
-repCon d (InfixC t1 n t2) eqs = repCon d (NormalC n [t1,t2]) eqs
+repCon k d (InfixC t1 n t2) eqs = repCon k d (NormalC n [t1,t2]) eqs
+
+
 
 --dataDeclToType :: (Name, [Name]) -> Type
 --dataDeclToType (dt, vs) = foldl (\a b -> AppT a (VarT b)) (ConT dt) vs
@@ -457,7 +477,7 @@ mkFrom ns m i n =
                     (length cs)) [1..] cs
                 TyConI (NewtypeD _ dt vs c _) ->
                   [fromCon wrapE ns (dt, map tyVarBndrToName vs) 1 0 c]
-                TyConI (TySynD t _ _) -> error "type synonym?" 
+                TyConI (TySynD t _ _) -> error "type synonym?"
                   -- [clause [varP (field 0)] (normalB (wrapE $ conE 'K1 `appE` varE (field 0))) []]
                 _ -> error "unknown construct"
       return b
@@ -469,14 +489,14 @@ mkTo ns m i n =
       let wrapP p = p -- lrP m i p
       i <- reify n
       let b = case i of
-                TyConI (DataD _ dt vs cs _) ->
+                TyConI (DataD foo dt vs cs _) ->
                   zipWith (toCon wrapP ns (dt, map tyVarBndrToName vs)
                     (length cs)) [1..] cs
                 TyConI (NewtypeD _ dt vs c _) ->
                   [toCon wrapP ns (dt, map tyVarBndrToName vs) 1 0 c]
-                TyConI (TySynD t _ _) -> error "type synonym?" 
+                TyConI (TySynD t _ _) -> error "type synonym?"
                   -- [clause [wrapP $ conP 'K1 [varP (field 0)]] (normalB $ varE (field 0)) []]
-                _ -> error "unknown construct" 
+                _ -> error "unknown construct"
       return b
 
 fromCon :: (Q Exp -> Q Exp) -> Name -> (Name, [Name]) -> Int -> Int -> Con -> Q Clause
@@ -490,7 +510,7 @@ fromCon wrap ns (dt, vs) m i (NormalC cn fs) =
   -- runIO (putStrLn ("constructor " ++ show ix)) >>
   clause
     [conP cn (map (varP . field) [0..length fs - 1])]
-    (normalB $ wrap $ lrE m i $ conE 'C `appE` 
+    (normalB $ wrap $ lrE m i $ conE 'C `appE`
       foldBal prod (zipWith (fromField (dt, vs)) [0..] (map snd fs))) []
   where prod x y = conE '(:*:) `appE` x `appE` y
 fromCon wrap ns (dt, vs) m i r@(RecC cn []) =
@@ -500,7 +520,7 @@ fromCon wrap ns (dt, vs) m i r@(RecC cn []) =
 fromCon wrap ns (dt, vs) m i r@(RecC cn fs) =
   clause
     [conP cn (map (varP . field) [0..length fs - 1])]
-    (normalB $ wrap $ lrE m i $ conE 'C `appE` 
+    (normalB $ wrap $ lrE m i $ conE 'C `appE`
       foldBal prod (zipWith (fromField (dt, vs)) [0..] (map trd fs))) []
   where prod x y = conE '(:*:) `appE` x `appE` y
 fromCon wrap ns (dt, vs) m i (InfixC t1 cn t2) =
@@ -511,8 +531,10 @@ fromField :: (Name, [Name]) -> Int -> Type -> Q Exp
 fromField (dt, vs) nr t = conE 'Rec `appE` varE (field nr)
 
 toCon :: (Q Pat -> Q Pat) -> Name -> (Name, [Name]) -> Int -> Int -> Con -> Q Clause
--- Contexts are ignored
-toCon wrap ns d m i (ForallC _ _ c) = toCon wrap ns d m i c
+toCon wrap ns d m i (ForallC _ ctx c) = do
+  runIO (print [ c | c@ClassP{} <- ctx ])
+  runIO (print c)
+  toCon wrap ns d m i c
 toCon wrap ns (dt, vs) m i (NormalC cn []) =
     clause
       [wrap $ lrP m i $ conP 'C [conP 'U []]]

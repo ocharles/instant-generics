@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeOperators            #-}
 {-# LANGUAGE OverlappingInstances     #-}
 {-# LANGUAGE GADTs                    #-}
+{-# LANGUAGE UndecidableInstances     #-}
+{-# LANGUAGE ConstraintKinds          #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -29,16 +31,16 @@ class GEq' a where
 
 instance GEq' U where
   geq' U U = True
-  
+
 instance (GEq' a, GEq' b) => GEq' (a :+: b) where
   geq' (L x) (L x') = geq' x x'
   geq' (R x) (R x') = geq' x x'
   geq' _      _     = False
-  
+
 instance (GEq' a, GEq' b) => GEq' (a :*: b) where
   geq' (a :*: b) (a' :*: b') = geq' a a' && geq' b b'
-  
-instance (GEq' a) => GEq' (CEq c p q a) where
+
+instance (k, GEq' a) => GEq' (CEq k c p q a) where
   geq' (C a) (C a') = geq' a a'
 
 instance GEq a => GEq' (Var a) where

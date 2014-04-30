@@ -1,4 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables      #-}
+{-# LANGUAGE UndecidableInstances     #-}
+{-# LANGUAGE ConstraintKinds          #-}
 {-# LANGUAGE TypeOperators            #-}
 {-# LANGUAGE FlexibleContexts         #-}
 {-# LANGUAGE OverlappingInstances     #-}
@@ -33,14 +35,14 @@ class Empty a where
 
 instance Empty U where
   empty' = U
-  
+
 instance (HasRec a, Empty a, Empty b) => Empty (a :+: b) where
   empty' = if hasRec' (empty' :: a) then R empty' else L empty'
-  
+
 instance (Empty a, Empty b) => Empty (a :*: b) where
   empty' = empty' :*: empty'
-  
-instance (Empty a) => Empty (CEq c p p a) where
+
+instance (k, Empty a) => Empty (CEq k c p p a) where
   empty' = C empty'
 
 instance (Empty a) => Empty (Var a) where
@@ -63,7 +65,7 @@ instance Empty Double where
 
 instance Empty Char where
   empty' = '\NUL'
-  
+
 instance Empty Bool where
   empty' = False
 
@@ -82,28 +84,28 @@ instance (Empty a, Empty b) => Empty (a,b)  where empty' = empty
 
 
 --------------------------------------------------------------------------------
--- | We use 'HasRec' to check for recursion in the structure. This is used 
+-- | We use 'HasRec' to check for recursion in the structure. This is used
 -- to avoid selecting a recursive branch in the sum case for 'Empty'.
 class HasRec a where
   hasRec' :: a -> Bool
   hasRec' _ = False
-  
+
 instance HasRec U
 instance HasRec (Var a)
 
 instance (HasRec a, HasRec b) => HasRec (a :*: b) where
   hasRec' (a :*: b) = hasRec' a || hasRec' b
-  
+
 instance (HasRec a, HasRec b) => HasRec (a :+: b) where
   hasRec' (L x) = hasRec' x
   hasRec' (R x) = hasRec' x
 
-instance (HasRec a) => HasRec (CEq c p q a) where
+instance (HasRec a) => HasRec (CEq k c p q a) where
   hasRec' (C x) = hasRec' x
-  
+
 instance HasRec (Rec a) where
   hasRec' _ = True
-  
+
 instance HasRec Int
 instance HasRec Integer
 instance HasRec Float

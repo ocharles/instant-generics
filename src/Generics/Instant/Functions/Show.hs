@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleContexts         #-}
 {-# LANGUAGE OverlappingInstances     #-}
 {-# LANGUAGE GADTs                    #-}
+{-# LANGUAGE UndecidableInstances     #-}
+{-# LANGUAGE ConstraintKinds          #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -31,15 +33,15 @@ class GShow' a where
 
 instance GShow' U where
   gshow' U = ""
-  
+
 instance (GShow' a, GShow' b) => GShow' (a :+: b) where
   gshow' (L x) = gshow' x
   gshow' (R x) = gshow' x
-  
+
 instance (GShow' a, GShow' b) => GShow' (a :*: b) where
   gshow' (a :*: b) = gshow' a `space` gshow' b
-  
-instance (GShow' a, Constructor c) => GShow' (CEq c p q a) where
+
+instance (k, GShow' a, Constructor c) => GShow' (CEq k c p q a) where
   gshow' c@(C a) | gshow' a == "" = paren $ conName c
                 | otherwise     = paren $ (conName c) `space` gshow' a
 
