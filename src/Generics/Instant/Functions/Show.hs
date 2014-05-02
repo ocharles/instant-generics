@@ -41,16 +41,15 @@ instance (GShow' a, GShow' b) => GShow' (a :+: b) where
 instance (GShow' a, GShow' b) => GShow' (a :*: b) where
   gshow' (a :*: b) = gshow' a `space` gshow' b
 
-instance (k, GShow' a, Constructor c) => GShow' (CEq k c p q a) where
+instance (k, GShow' a, Constructor c) => GShow' (CEq k c p a) where
   gshow' c@(C a) | gshow' a == "" = paren $ conName c
-                | otherwise     = paren $ (conName c) `space` gshow' a
+                 | otherwise      = paren $ (conName c) `space` gshow' a
 
 instance GShow a => GShow' (Var a) where
   gshow' (Var x) = gshow x
 
 instance GShow a => GShow' (Rec a) where
   gshow' (Rec x) = gshow x
-
 
 class GShow a where
   gshow :: a -> String

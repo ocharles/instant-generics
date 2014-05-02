@@ -58,8 +58,8 @@ instance (Representable a, Representable b) => Representable (a :+: b) where
   to = id
   from = id
 
-instance Representable a => Representable (CEq k c p q a) where
-  type Rep (CEq k c p q a) = CEq k c p q a
+instance Representable a => Representable (CEq k c p a) where
+  type Rep (CEq k c p a) = CEq k c p a
   to = id
   from = id
 

@@ -213,7 +213,7 @@ deriveInst t = do
   liftM (:[]) $
     instanceD (cxt [])
       (conT ''Representable `appT` typ t)
-        [ tySynInstD ''Rep [typ t] (typ (genRepName t))
+        [ tySynInstD ''Rep $ tySynEqn [typ t] (typ (genRepName t))
         , {- inlPrg, -} funD 'from fcs, funD 'to tcs]
 
 constrInstance :: Name -> Q [Dec]
@@ -336,8 +336,7 @@ repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) =
   do
      let
         genTypeEqs ((EqualP t1 t2):r) | otherwise = case genTypeEqs r of
-            (t1s,t2s) -> ( ConT ''(:*:) `AppT` (substTyVar vsN t1) `AppT` t1s
-                         , ConT ''(:*:) `AppT` (substTyVar vsN t2) `AppT` t2s)
+            t1s -> ConT ''(:*:) `AppT` (substTyVar vsN t1) `AppT` t1s
         genTypeEqs (_:r) = genTypeEqs r -- other constraints are ignored
         genTypeEqs []    = baseEqs
 
@@ -345,8 +344,13 @@ repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) =
           there <- genConstraints r
           let here = foldl AppT (ConT c) cvs
           return (TupleT 2 `AppT` here `AppT` there)
+        genConstraints ((EqualP t1 t2):r) = do
+          there <- genConstraints r
+          tilde <- conT ''(~)
+          let here = tilde `AppT` t1 `AppT` t2
+          return (TupleT 2 `AppT` here `AppT` there)
         genConstraints (_:r) = genConstraints r
-        genConstraints []    = conT ''()
+        genConstraints []    = tupleT 0
 
         substTyVar :: [Name] -> Type -> Type
         substTyVar ns = everywhere (mkT f) where
@@ -367,7 +371,7 @@ repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) =
             (everywhere (mkT (substTyVar vsN)) c)
             (genTypeEqs ctx)
 -- No constraints, go on as usual
-repConGADT d _repVs _ c = repCon (conT ''()) d c baseEqs
+repConGADT d _repVs _ c = repCon (tupleT 0) d c baseEqs
 
 -- Extract the constructor name
 getConName :: Con -> Name
@@ -391,7 +395,7 @@ genExTyFamInsts' :: Name -> Con -> Q [Dec]
 genExTyFamInsts' dt (ForallC vs cxt c) =
   do let mR = mobilityRules (tyVarBndrsToNames vs) cxt
          conName = ConT (genName [dt,getConName c])
-         tySynInst ty n x = TySynInstD ''X [conName, int2TLNat n, ty] x
+         tySynInst ty n x = TySynInstD ''X $ TySynEqn [conName, int2TLNat n, ty] x
      return [ tySynInst ty n (VarT nm) | (n,(nm, ty)) <- zip [0..] mR ]
 genExTyFamInsts' _ _ = return []
 
@@ -416,35 +420,35 @@ mobilityRules vs cxt = concat [ mobilityRules' v p | v <- vs, p <- cxt ] where
 flattenEqs :: (Type, Type) -> Q Type
 flattenEqs (t1, t2) = return t1 `appT` return t2
 
--- () ~ ()
-baseEqs :: (Type, Type)
-baseEqs = (TupleT 0, TupleT 0)
+-- ()
+baseEqs :: Type
+baseEqs = (TupleT 0)
 
 --repCon :: (Name, [Name]) -> Con -> (Type,Type) -> Q Type
 repCon _ dt (ForallC _ p r) t = error "XXX"
-repCon k (dt, vs) (NormalC n []) (t1,t2) =
+repCon k (dt, vs) (NormalC n []) t1 =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
                `appT` return t1
-               `appT` return t2 `appT` conT ''U
-repCon k (dt, vs) (NormalC n fs) (t1,t2) =
+               `appT` conT ''U
+repCon k (dt, vs) (NormalC n fs) t1 =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
                `appT` return t1
-               `appT` return t2 `appT`
+               `appT`
      (foldBal prod (map (repField (dt, vs) . snd) fs)) where
     prod :: Q Type -> Q Type -> Q Type
     prod a b = conT ''(:*:) `appT` a `appT` b
-repCon k (dt, vs) r@(RecC n []) (t1,t2)  =
+repCon k (dt, vs) r@(RecC n []) t1  =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
                `appT` return t1
-               `appT` return t2 `appT` conT ''U
-repCon k (dt, vs) r@(RecC n fs) (t1,t2) =
+               `appT` conT ''U
+repCon k (dt, vs) r@(RecC n fs) t1 =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
                `appT` return t1
-               `appT` return t2 `appT`
+               `appT`
       (foldBal prod (map (repField' (dt, vs) n) fs)) where
     prod :: Q Type -> Q Type -> Q Type
     prod a b = conT ''(:*:) `appT` a `appT` b
