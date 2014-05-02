@@ -3,6 +3,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Terms where
 
 import Generics.Instant
@@ -13,10 +16,11 @@ import Generics.Instant.TH
 data Term a where
   Eq :: Term Int -> Term Int -> Term Bool
 
-eqTerms :: Term a -> String
-eqTerms = gshowDefault
+-- eqTerms :: Term a -> String
+-- eqTerms = gshowDefault
 
 deriveAll ''Term
+gadtInstance ''GShow ''Term 'gshow 'gshowDefault
 
 --type RepTerm_ a = CEq (a ~ Bool) () a (Rec (Term Int))
 
