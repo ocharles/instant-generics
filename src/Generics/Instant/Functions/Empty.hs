@@ -42,7 +42,7 @@ instance (HasRec a, Empty a, Empty b) => Empty (a :+: b) where
 instance (Empty a, Empty b) => Empty (a :*: b) where
   empty' = empty' :*: empty'
 
-instance (k, Empty a) => Empty (CEq k c p a) where
+instance (k, Empty a) => Empty (CEq k c a) where
   empty' = C empty'
 
 instance (Empty a) => Empty (Var a) where
@@ -100,7 +100,7 @@ instance (HasRec a, HasRec b) => HasRec (a :+: b) where
   hasRec' (L x) = hasRec' x
   hasRec' (R x) = hasRec' x
 
-instance (HasRec a) => HasRec (CEq k c p a) where
+instance (HasRec a) => HasRec (CEq k c a) where
   hasRec' (C x) = hasRec' x
 
 instance HasRec (Rec a) where

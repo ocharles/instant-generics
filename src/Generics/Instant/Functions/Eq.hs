@@ -40,7 +40,7 @@ instance (GEq' a, GEq' b) => GEq' (a :+: b) where
 instance (GEq' a, GEq' b) => GEq' (a :*: b) where
   geq' (a :*: b) (a' :*: b') = geq' a a' && geq' b b'
 
-instance (k, GEq' a) => GEq' (CEq k c p a) where
+instance (k, GEq' a) => GEq' (CEq k c a) where
   geq' (C a) (C a') = geq' a a'
 
 instance GEq a => GEq' (Var a) where

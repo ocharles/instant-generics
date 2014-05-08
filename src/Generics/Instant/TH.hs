@@ -332,46 +332,39 @@ repConGADT :: (Name, [Name]) -> [TyVarBndr] -> [Name] -> Con -> Q Type
 repConGADT _ _ vs@(_:_:_) (ForallC _ _ _) =
   error ("Datatype indexed over >1 variable: " ++ show vs)
 -- Handle type equality constraints
-repConGADT d@(dt, dtVs) repVs [indexVar] (ForallC vs ctx c) =
-  do
-     let
-        genTypeEqs ((EqualP t1 t2):r) | otherwise = case genTypeEqs r of
-            t1s -> ConT ''(:*:) `AppT` (substTyVar vsN t1) `AppT` t1s
-        genTypeEqs (_:r) = genTypeEqs r -- other constraints are ignored
-        genTypeEqs []    = baseEqs
-
-        genConstraints ((ClassP c cvs):r) = do
-          there <- genConstraints r
-          let here = foldl AppT (ConT c) cvs
-          return (TupleT 2 `AppT` here `AppT` there)
-        genConstraints ((EqualP t1 t2):r) = do
-          there <- genConstraints r
-          tilde <- conT ''(~)
-          let here = tilde `AppT` t1 `AppT` t2
-          return (TupleT 2 `AppT` here `AppT` there)
-        genConstraints (_:r) = genConstraints r
-        genConstraints []    = tupleT 0
-
-        substTyVar :: [Name] -> Type -> Type
-        substTyVar ns = everywhere (mkT f) where
-          f (VarT v) = case elemIndex v ns of
-                         Nothing -> VarT v
-                         Just i  -> ConT ''X
-                                     `AppT` ConT (genName [dt,getConName c])
-                                     `AppT` int2TLNat i
-                                     `AppT` VarT indexVar
-          f x        = x
-
-        vsN :: [Name]
-        vsN = tyVarBndrsToNames vs
+repConGADT d@(dt, dtVs) repVs mindexVar (ForallC vs ctx c) =
+  do let genConstraints ((ClassP c cvs):r) = do
+           there <- genConstraints r
+           let here = substTyVar vsN $ foldl AppT (ConT c) cvs
+           return (TupleT 2 `AppT` here `AppT` there)
+         genConstraints ((EqualP t1 t2):r) = do
+           there <- genConstraints r
+           tilde <- conT ''(~)
+           let here = tilde `AppT` substTyVar vsN t1 `AppT` substTyVar vsN t2
+           return (TupleT 2 `AppT` here `AppT` there)
+         genConstraints (_:r) = genConstraints r
+         genConstraints []    = tupleT 0
+         
+         substTyVar :: [Name] -> Type -> Type
+         substTyVar ns = everywhere (mkT f) where
+           f (VarT v) = case (elemIndex v ns, mindexVar) of
+                          (Just i, [indexVar])
+                            -> ConT ''X
+                                 `AppT` ConT (genName [dt,getConName c])
+                                 `AppT` int2TLNat i
+                                 `AppT` VarT indexVar
+                          _ -> VarT v
+           f x        = x
+         
+         vsN :: [Name]
+         vsN = tyVarBndrsToNames vs
 
      -- Go on with generating the representation type, taking the equalities
      repCon (genConstraints ctx)
             (dt, dtVs)
             (everywhere (mkT (substTyVar vsN)) c)
-            (genTypeEqs ctx)
 -- No constraints, go on as usual
-repConGADT d _repVs _ c = repCon (tupleT 0) d c baseEqs
+repConGADT d _repVs _ c = repCon (tupleT 0) d c
 
 -- Extract the constructor name
 getConName :: Con -> Name
@@ -382,8 +375,8 @@ getConName (ForallC _ _ c) = getConName c
 
 -- Generate a type-level natural from an Int
 int2TLNat :: Int -> Type
-int2TLNat 0 = ConT ''Ze
-int2TLNat n = ConT ''Su `AppT` int2TLNat (n-1)
+int2TLNat 0 = ConT 'Ze
+int2TLNat n = ConT 'Su `AppT` int2TLNat (n-1)
 
 -- Generate the mobility rules for the existential type families
 genExTyFamInsts :: Dec -> Q [Dec]
@@ -420,39 +413,31 @@ mobilityRules vs cxt = concat [ mobilityRules' v p | v <- vs, p <- cxt ] where
 flattenEqs :: (Type, Type) -> Q Type
 flattenEqs (t1, t2) = return t1 `appT` return t2
 
--- ()
-baseEqs :: Type
-baseEqs = (TupleT 0)
-
---repCon :: (Name, [Name]) -> Con -> (Type,Type) -> Q Type
-repCon _ dt (ForallC _ p r) t = error "XXX"
-repCon k (dt, vs) (NormalC n []) t1 =
+repCon :: Q Type -> (Name, [Name]) -> Con -> Q Type
+repCon k dt (ForallC _ p r) = error "repCon: impossible"
+repCon k (dt, vs) (NormalC n []) =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
-               `appT` return t1
                `appT` conT ''U
-repCon k (dt, vs) (NormalC n fs) t1 =
+repCon k (dt, vs) (NormalC n fs) =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
-               `appT` return t1
                `appT`
      (foldBal prod (map (repField (dt, vs) . snd) fs)) where
     prod :: Q Type -> Q Type -> Q Type
     prod a b = conT ''(:*:) `appT` a `appT` b
-repCon k (dt, vs) r@(RecC n []) t1  =
+repCon k (dt, vs) r@(RecC n [])  =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
-               `appT` return t1
                `appT` conT ''U
-repCon k (dt, vs) r@(RecC n fs) t1 =
+repCon k (dt, vs) r@(RecC n fs) =
     conT ''CEq `appT` k
                `appT` (conT $ genName [dt, n])
-               `appT` return t1
                `appT`
       (foldBal prod (map (repField' (dt, vs) n) fs)) where
     prod :: Q Type -> Q Type -> Q Type
     prod a b = conT ''(:*:) `appT` a `appT` b
-repCon k d (InfixC t1 n t2) eqs = repCon k d (NormalC n [t1,t2]) eqs
+repCon k d (InfixC t1 n t2) = repCon k d (NormalC n [t1,t2])
 
 
 
@@ -536,8 +521,8 @@ fromField (dt, vs) nr t = conE 'Rec `appE` varE (field nr)
 
 toCon :: (Q Pat -> Q Pat) -> Name -> (Name, [Name]) -> Int -> Int -> Con -> Q Clause
 toCon wrap ns d m i (ForallC _ ctx c) = do
-  runIO (print [ c | c@ClassP{} <- ctx ])
-  runIO (print c)
+  -- runIO (print [ c | c@ClassP{} <- ctx ])
+  -- runIO (print c)
   toCon wrap ns d m i c
 toCon wrap ns (dt, vs) m i (NormalC cn []) =
     clause

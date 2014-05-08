@@ -10,10 +10,14 @@
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DataKinds                  #-}
 
 import Generics.Instant
 import Generics.Instant.TH
 import Generics.Instant.Functions
+
+-- Pedro: See DataKinds instead
 
 --------------------------------------------------------------------------------
 -- Generic enum
@@ -30,8 +34,7 @@ instance (GEnum a) => GEnum (Rec a) where
 instance (GEnum a) => GEnum (Var a) where
   genum' = map Var genum'
 
-instance (GEnum a) => GEnum (CEq c p p a) where genum' = map C genum'
-instance              GEnum (CEq c p q a) where genum' = []
+instance (k, GEnum a) => GEnum (CEq k c a) where genum' = map C genum'
 
 instance (GEnum f, GEnum g) => GEnum (f :+: g) where
   genum' = map L genum' ||| map R genum'
@@ -192,9 +195,9 @@ genumG1 = gshow (take 100 $ genum :: [G1 Int])
 -- Example 2: vectors
 
 -- Vec has a parameter 'a' and an index 'n'
-data Vec a :: * -> * where
-  Nil :: Vec a Ze
-  Cons :: a -> Vec a n -> Vec a (Su n)
+data Vec a :: Nat -> * where
+  Nil :: Vec a 'Ze
+  Cons :: a -> Vec a n -> Vec a ('Su n)
 
 deriveAll ''Vec
 
